@@ -1,7 +1,7 @@
 #!/bin/bash
 
 shopt -s extglob
-source /config/openstack-functions/os-functions.sh
+source /config/os-functions/os-functions.sh
 
 readonly OS_BIGIQ_LICENSE_POOL_USER=admin
 readonly OS_BIGIQ_LICENSE_POOL_PASSWORD=admin
