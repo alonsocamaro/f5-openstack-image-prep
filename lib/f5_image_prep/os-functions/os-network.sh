@@ -50,9 +50,9 @@ function set_tmm_if_selfip() {
 	  
 		local dhcp_enabled=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{dhcp})
 		local vlan_prefix=$(get_user_data_value {bigip}{network}{vlan_prefix})
-		local vlan_name=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_name})
+		local vlan_name=$(normalize_name "$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_name})")
 		local selfip_prefix=$(get_user_data_value {bigip}{network}{selfip_prefix})
-		local selfip_name=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_name})
+		local selfip_name=$(normalize_name "$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_name})")
 		local selfip_description=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_description})
 		local selfip_allow_service=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_allow_service})
 		local device_is_sync=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{is_sync})
@@ -142,7 +142,7 @@ function set_tmm_if_vlan() {
 
 	if [[ $tmm_if =~ $TMM_IF_REGEX ]]; then
 		local vlan_prefix=$(get_user_data_value {bigip}{network}{vlan_prefix})
-		local vlan_name=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_name})
+		local vlan_name=$(normalize_name "$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_name})")
 		local vlan_description=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_description})
 		local vlan_tag=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_tag})
 		local tagged=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{tagged})
@@ -261,7 +261,7 @@ function configure_tmm_ifs() {
 		fi
 
 		# setup self-IP
-		vlan_name=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_name})
+		vlan_name=$(normalize_name "$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_name})")
 		[[ $(is_false $vlan_name) ]] && vlan_name="${vlan_prefix}${tmm_if}"
 		tmsh list net self one-line | grep -q "vlan $vlan_name"
 

@@ -44,6 +44,12 @@ function upcase() {
   echo "$1" | tr '[a-z]' '[A-Z]'
 }
 
+# Normalize VLAN, self-ip, etc... replacing spaces with hyphens. Additional normalizations can be added
+function normalize_name() {
+
+	echo -n $1 | sed -e 's/ /-/g'
+}
+
 function is_false() {
     val=$1
 
@@ -174,7 +180,7 @@ function get_metadata_service_url() {
 	if [[ $? != 0 ]]; then
 		dhcp_server_address=$(get_dhcp_server_address)
 		log "Metadata server at $metadata_url is not available, trying $dhcp_server_address instead..."
-		metadata_url="http://$dhcp_server_address/${OS_METADATA_USER_DATA_PATH}"
+		metadata_url="http://$dhcp_server_address/$OS_METADATA_SERVICE_USER_DATA_PATH"
 		test_metadata_service $metadata_url
 		if [[ $? != 0 ]]; then
 			log "Could not locate a viable metadata server, setting default policy..."
