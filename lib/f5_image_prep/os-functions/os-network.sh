@@ -44,7 +44,7 @@ function set_tmm_if_selfip() {
 	local netmask=$3
 	local mtu=$4
   
-	unset dhcp_enabled selfip_prefix selfip_name selfip_description selfip_allow_service vlan_prefix vlan_name
+	unset dhcp_enabled selfip_prefix selfip_name selfip_description selfip_allow_service vlan_prefix vlan_name selfip_floatingip 
 	
 	if [[ ${address} =~ $IP_REGEX && ${netmask} =~ $IP_REGEX ]]; then
 	  
@@ -53,6 +53,8 @@ function set_tmm_if_selfip() {
 		local vlan_name=$(normalize_name "$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{vlan_name})")
 		local selfip_prefix=$(get_user_data_value {bigip}{network}{selfip_prefix})
 		local selfip_name=$(normalize_name "$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_name})")
+		local selfip_floatingip=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_floatingip})
+                local floatingip_owner=$(get_user_data_value {bigip}{network}{floatingip_owner})
 		local selfip_description=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_description})
 		local selfip_allow_service=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{selfip_allow_service})
 		local device_is_sync=$(get_user_data_value {bigip}{network}{interfaces}{$tmm_if}{is_sync})
@@ -87,7 +89,13 @@ function set_tmm_if_selfip() {
 		selfip_cmd="tmsh create net self $selfip_name address $address/$netmask allow-service $selfip_allow_service vlan $vlan_name description \"$selfip_description\""
 		log "  $selfip_cmd"
 		eval "$selfip_cmd 2>&1 | $LOGGER_CMD"
-		
+
+		if [[ "$(upcase ${floatingip_owner})" = "TRUE" ]] && [[ "$(upcase ${selfip_floatingip})" != "NONE" ]]; then
+			selfip_cmd="tmsh create net self $selfip_name-floating address $selfip_floatingip/$netmask traffic-group traffic-group-1 allow-service $selfip_allow_service vlan $vlan_name description \"floating-ip $selfip_description\""
+			log "  $selfip_cmd"
+			eval "$selfip_cmd 2>&1 | $LOGGER_CMD"
+		fi
+
 		if [[ $device_is_sync == true ]]; then
 			log "Configuring self IP $selfip_name as the device config sync interface"
 			if [[ $(is_false  ${local_device_name}) ]]; then
