@@ -17,6 +17,8 @@
 # 2015/12/15 - u.alonsocamaro@f5.com - First version released in hive
 # 2016/04/29 - u.alonsocamaro@f5.com - First version released in github supporting BIG-IQ 4.5/4.6
 # 2016/09/22 - u.alonsocamaro@f5.com - Support of BIG-IQ 5.0. Registration and registration are now in their own separate functions
+# 2016/09/22 - u.alonsocamaro@f5.com - Check BIG-IQ connectivity and version at startup first
+# 2016/09/22 - u.alonsocamaro@f5.com - Support of BIG-IQ 5.1 only with basic auth - see https://support.f5.com/kb/en-us/solutions/public/k/43/sol43725273.html
 
 shopt -s extglob
 source /config/os-functions/os-functions.sh
@@ -107,6 +109,12 @@ function check_bigiq_5plus ()
 {
 
     local http_code=$(curlbigiq "/mgmt/shared/resolver/device-groups/cm-shared-all-big-iqs/devices?\\\$select=version" -X GET )
+
+    if [ "$http_code" != "200" ]; then
+	log "Error while trying to get the version of the BIG-IQ: HTTP code is $http_code"
+	echo ""
+	return
+    fi
 
     local -a bqVersion
 
@@ -227,8 +235,6 @@ function license_via_bigiq_license_pool() {
 		log "BIG-IQ licensing via license pool selected but no BIG-IQ host selected, quitting..."
 		return 1
 	fi
-
-	is_bigiq_5plus=$( check_bigiq_5plus )
 
 	if [[ "$is_bigiq_5plus" = 0 ]]; then
 		selflink=$( register_bigip )
@@ -354,8 +360,6 @@ function unlicense_via_bigiq_license_pool() {
 
 	pools=( $(get_bigiq_reply_values_from_array {items} {uuid}) )
 
-	is_bigiq_5plus=$( check_bigiq_5plus )
-
         # Try each license pool until we find us 
         for pool in $pools; do
 
@@ -393,8 +397,6 @@ function unlicense_via_bigiq_license_pool() {
 				fi
 
 				log "Could eliminate license $uuid from license pool $pool"
-
-			        is_bigiq_5plus=$( check_bigiq_5plus )
 
 			        if [[ "$is_bigiq_5plus" = 0 ]]; then
 					unregister_bigip
@@ -458,7 +460,7 @@ function test() {
 }
 
 
-### MAIN #########################################################
+### GET VARIABLES AND TEST BIG-IQ  #########################################################
 
 get_user_data
 
@@ -482,6 +484,16 @@ bigiq_license_pool_password=$(get_user_data_value {bigip}{license}{bigiq_license
 [[ $(is_false ${bigiq_license_pool_host}) ]] && bigiq_license_pool_host=${OS_BIGIQ_LICENSE_POOL_HOST}
 [[ $(is_false ${bigiq_license_pool_user}) ]] && bigiq_license_pool_user=${OS_BIGIQ_LICENSE_POOL_USER}
 [[ $(is_false ${bigiq_license_pool_password}) ]] && bigiq_license_pool_password=${OS_BIGIQ_LICENSE_POOL_PASSWORD}
+
+is_bigiq_5plus=$( check_bigiq_5plus )
+
+if [[ "$is_bigiq_5plus" = "" ]]; then
+
+        log "Couldn't get the version of BIG-IQ, aborting..."
+        exit 1
+fi
+
+############################################################################################
 
 if [[ $1 = "test" ]]; then
 	test
