@@ -19,6 +19,8 @@
 # 2016/09/22 - u.alonsocamaro@f5.com - Support of BIG-IQ 5.0. Registration and registration are now in their own separate functions
 # 2016/09/22 - u.alonsocamaro@f5.com - Check BIG-IQ connectivity and version at startup first
 # 2016/09/22 - u.alonsocamaro@f5.com - Support of BIG-IQ 5.1 only with basic auth - see https://support.f5.com/kb/en-us/solutions/public/k/43/sol43725273.html
+# 2016/09/27 - u.alonsocamaro@f5.com - Support for local auth token support: tested with BIG-IQ 4.6/5.0/5.1
+# 2016/09/27 - u.alonsocamaro@f5.com - Now local auth token is the default auth method. This can be changed with the user data JSON file
 
 shopt -s extglob
 source /config/os-functions/os-functions.sh
@@ -35,6 +37,8 @@ readonly OS_BIGIQ_LICENSE_POOL_HOST=127.0.0.1
 readonly OS_BIGIQ_LICENSE_POOL_USER=admin
 readonly OS_BIGIQ_LICENSE_POOL_PASSWORD=admin
 
+readonly OS_BIGIQ_AUTH_METHOD="token-local"
+
 # 
 readonly OS_BIGIQ_JSON_REPLY_FILE=/tmp/bigiq_reply.json
 readonly OS_BIGIQ_JSON_REPLY_TMP_FILE=/tmp/bigiq_reply.tmp
@@ -46,8 +50,14 @@ function curlbigiq() {
 
 	rm -f ${OS_BIGIQ_JSON_REPLY_FILE} ${OS_BIGIQ_JSON_REPLY_TMP_FILE}
 
+	if [[ "$auth_token" != "" ]]; then
+		local auth="-H \"X-F5-Auth-Token: $auth_token\""
+	else
+		local auth="-u $bigiq_license_pool_user:$bigiq_license_pool_password"
+	fi
+
 	local CTYPE='-H "Content-Type: application/json"'
-        local CBASE="curl -sk -w %{http_code} -o ${OS_BIGIQ_JSON_REPLY_FILE} $CTYPE -u $bigiq_license_pool_user:$bigiq_license_pool_password --max-time 180"
+        local CBASE="curl -sk -w %{http_code} -o ${OS_BIGIQ_JSON_REPLY_FILE} $CTYPE $auth --max-time 180"
         local -i http_code=$(eval $CBASE https://$bigiq_license_pool_host$@)
 
 	if [[ $http_code -eq 0 ]]; then
@@ -421,6 +431,23 @@ function unlicense_via_bigiq_license_pool() {
 	return 1
 }
 
+# get BIG-IQ auth token
+function get_bigiq_auth_token() {
+
+    local JSON="{\"username\": \"$bigiq_license_pool_user\", \"password\": \"$bigiq_license_pool_password\" }"
+    local http_code=$(curlbigiq "/mgmt/shared/authn/login" -X POST -d "\"$JSON\"" )
+
+    if [ "$http_code" != "200" ]; then
+        log "Error while trying to get an auth token for the BIG-IQ: HTTP code is $http_code"
+        echo ""
+        return
+    fi
+
+    local token=$( get_bigiq_reply_value {token}{token} )
+
+    echo $token
+}
+
 function do_license_via_bigiq() {
 
         license_via_bigiq_license_pool
@@ -467,6 +494,8 @@ get_user_data
 bigip_admin_password=$(get_user_data_value {bigip}{admin_password})
 bigip_root_password=$(get_user_data_value {bigip}{root_password})
 
+bigiq_auth_method=$(get_user_data_value {bigip}{license}{bigiq_auth_method})
+
 bigiq_license_pool_uuid=$(get_user_data_value {bigip}{license}{bigiq_license_pool_uuid})
 bigiq_update_framework=$(get_user_data_value {bigip}{license}{bigiq_update_framework})
 
@@ -478,6 +507,8 @@ bigiq_license_pool_password=$(get_user_data_value {bigip}{license}{bigiq_license
 [[ $(is_false ${bigiq_admin_password}) ]] && bigiq_admin_password=${OS_BIGIQ_ADMIN_PASSWORD}
 [[ $(is_false ${bigiq_root_password}) ]] && bigiq_root_password=${OS_BIGIQ_ROOT_PASSWORD}
 
+[[ $(is_false ${bigiq_auth_method}) ]] && bigiq_auth_method=${OS_BIGIQ_AUTH_METHOD}
+
 [[ $(is_false ${bigiq_license_pool_uuid}) ]] && bigiq_license_pool_uuid=${OS_BIGIQ_LICENSE_POOL_UUID}
 [[ $(is_false ${bigiq_update_framework}) ]] && bigiq_update_framework=${OS_BIGIQ_UPDATE_FRAMEWORK}
 
@@ -485,12 +516,21 @@ bigiq_license_pool_password=$(get_user_data_value {bigip}{license}{bigiq_license
 [[ $(is_false ${bigiq_license_pool_user}) ]] && bigiq_license_pool_user=${OS_BIGIQ_LICENSE_POOL_USER}
 [[ $(is_false ${bigiq_license_pool_password}) ]] && bigiq_license_pool_password=${OS_BIGIQ_LICENSE_POOL_PASSWORD}
 
+
+if [[ "$bigiq_auth_method" = "token-local" ]]; then
+
+        auth_token=$( get_bigiq_auth_token )
+else
+        auth_token=""
+fi
+
 is_bigiq_5plus=$( check_bigiq_5plus )
 
 if [[ "$is_bigiq_5plus" = "" ]]; then
 
         log "Couldn't get the version of BIG-IQ, aborting..."
         exit 1
+
 fi
 
 ############################################################################################
