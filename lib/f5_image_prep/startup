@@ -52,6 +52,9 @@ function main() {
                 # non first boot policy
                 restore_issue
 
+		# this is a workaround for sol12432 but will also cope with the case of a changed MTU
+		force_mgmt_mtu
+		
 	        finish=$(date +%s)
         	log "Completed OpenStack auto-configuration in $(($finish-$start)) seconds..."
 

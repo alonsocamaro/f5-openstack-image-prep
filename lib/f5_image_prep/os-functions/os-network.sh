@@ -324,7 +324,7 @@ function force_mgmt_mtu() {
       }
 
       print interface_mtu
-    }' $OS_MGMT_LEASE_FILE`
+    }' $OS_MGMT_LEASE_FILE | tail -n 1`
 
 		# Is the management interface mtu is set by DHCP?
 		if [[ $mgmt_mtu =~ ^[0-9]+$ ]]; then
@@ -333,7 +333,7 @@ function force_mgmt_mtu() {
 			ip link set eth0 mtu $mgmt_mtu
 		else
 			# No, use a smaller sized MTU
-			log "Setting Management interface MTU to default $mgmt_mtu"
+			log "Setting Management interface MTU to default $OS_MGMT_MTU"
 			ip link set eth0 mtu $OS_MGMT_MTU
 		fi
 }
