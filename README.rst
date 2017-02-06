@@ -21,3 +21,5 @@ A VE image must be 'patched' to run in OpenStack. This allows for proper bootup 
 The above command patches the BIGIP_11.6.qcow2 image to be firstboot and injects a user-defined startup script before producing a patched image. The patched image will be created in $HOME/.f5-image-prep/tmp if no -o (output file) is specified. A minimal execution of the script might look like the following:
 
     sudo /bin/bash patch-image.sh -f BIG_11.6.qcow2
+
+TODO: Set "guiSetup": "disabled" only if everything goes well
